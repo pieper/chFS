@@ -1,0 +1,32 @@
+{
+  "name": "chFS",
+  "version": "0.0.0",
+  "description": "file system interface to the Chronicle system",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/pieper/chFS"
+  },
+  "keywords": [
+    "fuse4js",
+    "cradle",
+    "dcmjs",
+    "Chronicle",
+    "dicom",
+    "CouchDB",
+    "dcmtk"
+  ],
+  "author": "Steve Pieper, Isomics, Inc.",
+  "license": "GPL",
+  "bugs": {
+    "url": "https://github.com/pieper/chFS/issues"
+  },
+  "homepage": "https://github.com/pieper/chFS",
+  "dependencies": {
+    "cradle": "^0.6.7",
+    "fuse4js": "^0.1.9"
+  }
+}
