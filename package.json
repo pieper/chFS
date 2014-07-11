@@ -27,6 +27,7 @@
   "homepage": "https://github.com/pieper/chFS",
   "dependencies": {
     "cradle": "^0.6.7",
-    "fuse4js": "^0.1.9"
+    "fuse4js": "^0.1.9",
+    "underscore": "^1.6.0"
   }
 }
