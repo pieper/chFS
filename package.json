@@ -4,7 +4,7 @@
   "description": "file system interface to the Chronicle system",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test/tests.js"
   },
   "repository": {
     "type": "git",

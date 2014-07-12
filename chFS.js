@@ -2,6 +2,16 @@
  *
  * chFS.js
  *
+ * This is a filesystem interface to the Chronicle system.
+ * The code is based on jsonFS.js developed by VMWare and
+ * retains the GPL license of the source example.
+ *
+ * For now this is read-only.  Refer back to the jsonFS.js file
+ * in fuse4js (and friends) to see the implementation of a
+ * read/write file system.
+ *
+ * =======================================================================
+ *
  * Copyright (c) 2014 Isomics, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -19,14 +29,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * =======================================================================
- *
- * This is a filesystem interface to the Chronicle system.
- * The code is based on jsonFS.js developed by VMWare and
- * retains the GPL license of the source example.
- *
- * For now this is read-only.  Refer back to the jsonFS.js file
- * in fuse4js (and friends) to see the implementation of a
- * read/write file system.
  *
  *
  *
@@ -316,16 +318,6 @@ function keyToPath(key) {
   return(path);
 }
 
-var path = "/[inst,patid]/[studydes,studid]/[modality,serdesc,serid]/instid"
-console.log(path);
-console.log("maps to ");
-var key = pathToKey(path);
-console.log(key);
-console.log("maps to ");
-var newPath = keyToPath(key);
-console.log(newPath);
-
-console.log("\npath and key are equal?", path == newPath);
 
 /*
 forTests:
@@ -367,6 +359,18 @@ to simplify processing.  Possible options:
 /studydesc/patient/seriesnumber-seriesdesc/instanceno
 
 */
+
+//TODO: move these to tests/path-tests.js
+var path = "/[inst,patid]/[studydes,studid]/[modality,serdesc,serid]/instid"
+console.log(path);
+console.log("maps to ");
+var key = pathToKey(path);
+console.log(key);
+console.log("maps to ");
+var newPath = keyToPath(key);
+console.log(newPath);
+
+console.log("\npath and key are equal?", path == newPath);
 
 
 //---------------------------------------------------------------------------
