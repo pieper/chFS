@@ -28,13 +28,21 @@ dbTests = {
   subListing : function() {
     var names = [];
 
+    // this works in the shell:
+    // curl 'http://localhost:5984/chronicle/_design/instances/_view/context?reduce=true&group_level=2&startkey=\[\["CNI"\]\]&endkey=\[\["CNI\u9999"\]\]'
+
     var viewOptions = {
       reduce : true,
       group_level : 2,
-      //startkey : ['[CNI MS SCANNER BOSTON,nk030702]', '["",""]'],
-      startkey : ['[CNI MS SCANNER BOSTON,nk030702]'],
-      //endkey : ['[CNI MS SCANNER BOSTON,nk030702]', '[\u9999,\u9999]'],
+      //startkey : [['CNI']],
+      //endkey : [['CNIz']],
+      startkey : [['CNI MS SCANNER BOSTON,nk030702']],
+      endkey   : [['CNI MS SCANNER BOSTON,nk030702\u9999']],
     }
+      //startkey : ['[CNI MS SCANNER BOSTON,nk030702]'],
+      //endkey   : ['[CNI MS SCANNER BOSTON,nk030702zzzz]'],
+    //startkey : ['[CNI MS SCANNER BOSTON,nk030702]', '["",""]'],
+    //endkey : [ '[CNI MS SCANNER BOSTON,nk030702]', '[\u9999,\u9999]' ],
     chronicle.view('instances/context', viewOptions, function(chError,response) {
       if (chError) {
         console.log("failure");
