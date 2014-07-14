@@ -21,28 +21,21 @@ dbTests = {
           names.push('['+key[0].toString()+']');
         });
       }
-      console.log( names );
+      console.log( "rootListing names: ", names );
     });
   },
 
   subListing : function() {
     var names = [];
 
-    // this works in the shell:
-    // curl 'http://localhost:5984/chronicle/_design/instances/_view/context?reduce=true&group_level=2&startkey=\[\["CNI"\]\]&endkey=\[\["CNI\u9999"\]\]'
-
+    // corresponds to this in the browser:
+    // http://localhost:5984/chronicle/_design/instances/_view/context?reduce=true&group_level=2&startkey=[[%22Anonymous%20Hospital%22,%220003-30002%22]]&endkey=[[%22Anonymous%20Hospital%22,%220003-30002\u9999%22]]
     var viewOptions = {
       reduce : true,
       group_level : 2,
-      //startkey : [['CNI']],
-      //endkey : [['CNIz']],
-      startkey : [['CNI MS SCANNER BOSTON,nk030702']],
-      endkey   : [['CNI MS SCANNER BOSTON,nk030702\u9999']],
+      startkey : [['Anonymous Hospital','0003-30002']],
+      endkey   : [['Anonymous Hospital','0003-30002'], {}],
     }
-      //startkey : ['[CNI MS SCANNER BOSTON,nk030702]'],
-      //endkey   : ['[CNI MS SCANNER BOSTON,nk030702zzzz]'],
-    //startkey : ['[CNI MS SCANNER BOSTON,nk030702]', '["",""]'],
-    //endkey : [ '[CNI MS SCANNER BOSTON,nk030702]', '[\u9999,\u9999]' ],
     chronicle.view('instances/context', viewOptions, function(chError,response) {
       if (chError) {
         console.log("failure");
@@ -51,7 +44,7 @@ dbTests = {
           names.push(key);
         });
       }
-      console.log( names );
+      console.log( "subListing names: ", names );
     });
   },
 
