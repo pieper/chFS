@@ -61,11 +61,34 @@ function getattr(path, cb) {
   var stat = {};
   var err = 0; // assume success
 
-  // TODO: everything is a directory for now
-  stat.size = 4096;   // standard size of a directory
-  stat.mode = 040777; // directory with 777 permissions
-
-  cb( err, stat );
+  if (ch.contextPaths.pathIsAttachment(path)) {
+    stat.mode = 0100666; // file with 666 permissions
+    var id = ch.contextPaths.pathDocumentID(path);
+    chronicle.get(id, function(chError,doc) {
+      if (chError) {
+        cb(-2, stat); // -ENOENT
+      } else {
+        var attachmentPath = ch.contextPaths.pathAttachmentPath(path);
+        if (attachmentPath === "dataset.json") {
+          var dataset = JSON.stringify(doc.dataset);
+          stat.size = dataset.length;
+          cb(0, stat);
+        } else {
+          if (!_.contains(_.keys(doc._attachments), attachmentPath)) {
+            cb(-2, stat); // -ENOENT
+          } else {
+            stat.size = doc._attachments[attachmentPath].length;
+            cb(0, stat);
+          }
+        }
+      }
+    });
+  } else {
+    // TODO: check for valid path and see if they are attachments
+    stat.size = 4096;   // standard size of a directory
+    stat.mode = 040777; // directory with 777 permissions
+    cb( err, stat );
+  }
 }
 
 /*
@@ -104,21 +127,39 @@ function readdir(path, cb) {
   var names = [];
   var err = 0; // assume success
 
-  var viewOptions = ch.paths.pathToViewOptions(path);
-  chronicle.view('instances/context', viewOptions, function(chError,response) {
-    if (chError) {
-      err = -2; // -ENOENT
-    } else {
-      response.forEach(function(key, row, id) {
-        if (viewOptions.startkey) {
-          var startkey = JSON.parse(viewOptions.startkey);
-          key = key.slice(startkey.length); // remove common prefix
+  if (ch.contextPaths.pathIsDocument(path)) {
+    var id = ch.contextPaths.pathDocumentID(path);
+    chronicle.get(id, function(chError,doc) {
+      if (chError) {
+        cb(-2, []); // -ENOENT
+      } else {
+        names = [];
+        if (doc.dataset) {
+          names.push('dataset.json');
         }
-        names.push(key.toString());
-      });
-    }
-    cb( err, names );
-  });
+        _.each(_.keys(doc._attachments), function(element, index) {
+          names.push(element);
+        });
+        cb( err, names );
+      }
+    });
+  } else {
+    var viewOptions = ch.contextPaths.pathToViewOptions(path);
+    chronicle.view('instances/context', viewOptions, function(chError,response) {
+      if (chError) {
+        err = -2; // -ENOENT
+      } else {
+        response.forEach(function(key, row, id) {
+          if (viewOptions.startkey) {
+            var startkey = JSON.parse(viewOptions.startkey);
+            key = key.slice(startkey.length); // remove common prefix
+          }
+          names.push(key.toString());
+        });
+      }
+      cb( err, names );
+    });
+  }
 
 
 
@@ -159,15 +200,11 @@ function readdir(path, cb) {
  */
 function open(path, flags, cb) {
   var err = 0; // assume success
-  cb(-2);
-  /*
-  var info = lookup(obj, path);
 
-  if (typeof info.node === 'undefined') {
+  if (!ch.contextPaths.pathIsAttachment(path)) {
     err = -2; // -ENOENT
   }
   cb(err); // we don't return a file handle, so fuse4js will initialize it to 0
-  */
 }
 
 //---------------------------------------------------------------------------
@@ -184,39 +221,38 @@ function open(path, flags, cb) {
  */
 function read(path, offset, len, buf, fh, cb) {
   var err = 0; // assume success
-  cb(-2);
-  /*
-  var info = lookup(obj, path);
-  var file = info.node;
-  var maxBytes;
-  var data;
 
-  switch (typeof file) {
-  case 'undefined':
+  if (!ch.contextPaths.pathIsAttachment(path)) {
     err = -2; // -ENOENT
-    break;
-
-  case 'object': // directory
-    err = -1; // -EPERM
-    break;
-
-  case 'string': // a string treated as ASCII characters
-    if (offset < file.length) {
-      maxBytes = file.length - offset;
-      if (len > maxBytes) {
-        len = maxBytes;
+    cb(err);
+  } else {
+    var id = ch.contextPaths.pathDocumentID(path);
+    chronicle.get(id, function(chError,doc) {
+      if (chError) {
+        cb(-2); // -ENOENT
+      } else {
+        var attachmentPath = ch.contextPaths.pathAttachmentPath(path);
+        if (attachmentPath === "dataset.json") {
+          var dataset = JSON.stringify(doc.dataset);
+          buf.write(dataset.substr(offset,offset+len),0,len,'ascii');
+          cb(len);
+        } else {
+          if (_.contains(_.keys(doc._attachments), attachmentPath)) {
+            chronicle.getAttachment(id, attachmentPath, function (err, reply) {
+              if (err) {
+                cb(-2); // -ENOENT
+              } else {
+                reply.body.copy(buf, 0, offset, offset+len);
+                cb( len );
+              }
+            });
+          } else {
+            cb(-2); // -ENOENT
+          }
+        }
       }
-      data = file.substring(offset, len);
-      buf.write(data, 0, len, 'ascii');
-      err = len;
-    }
-    break;
-
-  default:
-    break;
+    });
   }
-  cb(err);
-  */
 }
 
 //---------------------------------------------------------------------------
