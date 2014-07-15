@@ -37,7 +37,7 @@
 var _ = require('underscore');
 var fuse4js = require('fuse4js');
 var cradle = require('cradle');
-var fs = require('fs');
+var ch = require('ch');
 var chronicle = null;  // the cradle database connection, used globally
 var options = {};  // See parseArgs()
 
@@ -104,20 +104,22 @@ function readdir(path, cb) {
   var names = [];
   var err = 0; // assume success
 
-  var viewOptions = {
-    reduce : true,
-    group_level : 1,
-  }
+  var viewOptions = ch.paths.pathToViewOptions(path);
   chronicle.view('instances/context', viewOptions, function(chError,response) {
     if (chError) {
       err = -2; // -ENOENT
     } else {
       response.forEach(function(key, row, id) {
-        names.push('['+key[0].toString()+']');
+        if (viewOptions.startkey) {
+          var startkey = JSON.parse(viewOptions.startkey);
+          key = key.slice(startkey.length); // remove common prefix
+        }
+        names.push(key.toString());
       });
     }
     cb( err, names );
   });
+
 
 
 /*
@@ -157,12 +159,15 @@ function readdir(path, cb) {
  */
 function open(path, flags, cb) {
   var err = 0; // assume success
+  cb(-2);
+  /*
   var info = lookup(obj, path);
 
   if (typeof info.node === 'undefined') {
     err = -2; // -ENOENT
   }
   cb(err); // we don't return a file handle, so fuse4js will initialize it to 0
+  */
 }
 
 //---------------------------------------------------------------------------
@@ -179,6 +184,8 @@ function open(path, flags, cb) {
  */
 function read(path, offset, len, buf, fh, cb) {
   var err = 0; // assume success
+  cb(-2);
+  /*
   var info = lookup(obj, path);
   var file = info.node;
   var maxBytes;
@@ -209,6 +216,7 @@ function read(path, offset, len, buf, fh, cb) {
     break;
   }
   cb(err);
+  */
 }
 
 //---------------------------------------------------------------------------
@@ -270,122 +278,18 @@ var handlers = {
 };
 
 
-
-/*
- * Utilities for chFS
- *
- */
-
-//---------------------------------------------------------------------------
-
-/*
- * Accepts a fuse path and returns the corresponding 
- * chronicle search key version.
- */
-function pathToKey(path) {
-  var pathComponents = path.split('/');
-  var key = [];
-  _.each(pathComponents, function(element, index) {
-    if (element !== "") {
-      var listForm = [];
-      element = element.replace('[','').replace(']','');
-      if (element.indexOf(',') < 0) {
-        listForm = element;
-      } else {
-        _.each(element.split(','), function(part,index) {
-          listForm.push(part);
-        });
-      }
-      key.push(listForm);
-    }
-  });
-  return(key);
-}
-
-/*
- * Accepts a chronicle search key
- * and returns the corresponding fuse path.
- */
-function keyToPath(key) {
-  var path = "";
-  _.each(key, function(element,index) {
-    if (typeof element !== 'string') {
-      path += "/[" + element + "]";
-    } else {
-      path += "/" + element;
-    }
-  });
-  return(path);
-}
-
-
-/*
-forTests:
-
-A chronicle key looks like this:
-
-[
- ["Brigham and Womens Hosp 221 15", "0001-01001"],
- ["novartis thighs and left arm", "1.3.6.1.4.1.35511635217625025614132.1"],
- ["MR", "Band 0 (without tumors)", "1.3.6.1.4.1.35511635217625025614132.1.4.0"],
- "1.3.6.1.4.1.35511635217625025614132.1.4.0.3.0"
-]
-
-which is [[inst,patid],[studydes,studid],[modality,serdesc,serid],instid]
-
-which maps to a path like this:
-
-/[inst,patid]/[studydes,studid]/[modality,serdesc,serid]/instid
-
-Note the various descriptions can have invalid (or confusing) characters
-for a file system path.  TODO: urlencode the worst offenders
-
-Design decisions:
-- make the filename match the key, including UID to avoid name clashes
-- include the square brakets in the filenames, but remove the quotes
-  (bash autocomplete will escape the brackets and other chars)
-  (use quotes when cutting and pasting a file path)
-- slashes and commas are the characters that need to be url encoded for now
-
-
-
-TODO: Should make a (set of) custom views that expose useful paths
-to simplify processing.  Possible options:
-
-/inst/modality/date/studyid-studydesc/seriesnumber-seriesdesc/instanceno
-
-/referring/modality/date/studyid-studydesc/seriesnumber-seriesdesc/instanceno
-
-/studydesc/patient/seriesnumber-seriesdesc/instanceno
-
-*/
-
-//TODO: move these to tests/path-tests.js
-var path = "/[inst,patid]/[studydes,studid]/[modality,serdesc,serid]/instid"
-console.log(path);
-console.log("maps to ");
-var key = pathToKey(path);
-console.log(key);
-console.log("maps to ");
-var newPath = keyToPath(key);
-console.log(newPath);
-
-console.log("\npath and key are equal?", path == newPath);
-
-
 //---------------------------------------------------------------------------
 
 function usage() {
   console.log();
-  console.log("Usage: node jsonFS.js [options] inputJsonFile mountPoint");
+  console.log("Usage: node chFS.js [options] mountPoint");
   console.log("(Ensure the mount point is empty and you have wrx permissions to it)\n")
   console.log("Options:");
-  console.log("-o outputJsonFile  : save modified data to new JSON file. Input file is never modified.");
   console.log("-d                 : make FUSE print debug statements.");
   console.log("-a                 : add allow_other option to mount (might need user_allow_other in system fuse config file).");
   console.log();
   console.log("Example:");
-  console.log("node example/jsonFS.fs -d -o /tmp/output.json example/sample.json /tmp/mnt");
+  console.log("node chFS.fs -d /tmp/mnt");
   console.log();
 }
 
@@ -397,12 +301,11 @@ function parseArgs() {
   //
   var i, remaining;
   var args = process.argv;
-  if (args.length < 4) {
+  if (args.length < 3) {
     return false;
   }
   options.mountPoint = args[args.length - 1];
-  options.inJson = args[args.length - 2];
-  remaining = args.length - 4;
+  remaining = args.length - 3;
   i = 2;
   while (remaining--) {
     if (args[i] === '-d') {
@@ -441,13 +344,9 @@ function gracefulShutdown(mountPoint, shutdownCB) {
   if (parseArgs()) {
 
     // chFS options
-    console.log("\nInput file: " + options.inJson);
     console.log("Mount point: " + options.mountPoint);
     if (options.debugFuse)
       console.log("FUSE debugging enabled");
-
-    content = fs.readFileSync(options.inJson, 'utf8');
-    obj = JSON.parse(content);
 
     chronicle = new(cradle.Connection)().database('chronicle');
 
