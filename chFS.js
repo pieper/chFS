@@ -37,10 +37,12 @@
 var _ = require('underscore');
 var fuse4js = require('fuse4js');
 var cradle = require('cradle');
-var ch = require('ch');
-var chronicle = null;  // the cradle database connection, used globally
+var chlib = require('ch');
 var options = {};  // See parseArgs()
 
+// Open the connection to the database
+var ch = new(chlib.ch.Connection)();
+var chronicle = ch.chronicle;  // the cradle database connection, used globally
 
 
 /*
@@ -145,6 +147,7 @@ function readdir(path, cb) {
     });
   } else {
     var viewOptions = ch.contextPaths.pathToViewOptions(path);
+    viewOptions.stale = "update_after";
     chronicle.view('instances/context', viewOptions, function(chError,response) {
       if (chError) {
         err = -2; // -ENOENT
@@ -383,8 +386,6 @@ function gracefulShutdown(mountPoint, shutdownCB) {
     console.log("Mount point: " + options.mountPoint);
     if (options.debugFuse)
       console.log("FUSE debugging enabled");
-
-    chronicle = new(cradle.Connection)().database('chronicle');
 
     try {
 
